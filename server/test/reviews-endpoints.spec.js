@@ -2,13 +2,17 @@ const knex = require('knex')
 const app = require('../src/app')
 const helpers = require('./test-helpers')
 
-describe('Reviews Endpoints', function() {
+describe('Reviews Endpoints', function () {
   let db
 
-  const {
-    testThings,
-    testUsers,
-  } = helpers.makeThingsFixtures()
+  const { testThings, testUsers } = helpers.makeThingsFixtures()
+
+  function makeAuthHeader(user) {
+    const token = Buffer.from(`${user.user_name}:${user.password}`).toString(
+      'base64'
+    )
+    return `Basic ${token}`
+  }
 
   before('make knex instance', () => {
     db = knex({
@@ -26,14 +30,10 @@ describe('Reviews Endpoints', function() {
 
   describe(`POST /api/reviews`, () => {
     beforeEach('insert things', () =>
-      helpers.seedThingsTables(
-        db,
-        testUsers,
-        testThings,
-      )
+      helpers.seedThingsTables(db, testUsers, testThings)
     )
 
-    it(`creates an review, responding with 201 and the new review`, function() {
+    it(`creates an review, responding with 201 and the new review`, function () {
       this.retries(3)
       const testThing = testThings[0]
       const testUser = testUsers[0]
@@ -45,6 +45,7 @@ describe('Reviews Endpoints', function() {
       }
       return supertest(app)
         .post('/api/reviews')
+        .set('Authorization', makeAuthHeader(testUser))
         .send(newReview)
         .expect(201)
         .expect(res => {
@@ -93,6 +94,7 @@ describe('Reviews Endpoints', function() {
 
         return supertest(app)
           .post('/api/reviews')
+          .set('Authorization', makeAuthHeader(testUsers[0]))
           .send(newReview)
           .expect(400, {
             error: `Missing '${field}' in request body`,

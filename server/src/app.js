@@ -6,17 +6,20 @@ const helmet = require('helmet')
 const { NODE_ENV } = require('./config')
 const thingsRouter = require('./things/things-router')
 const reviewsRouter = require('./reviews/reviews-router')
+const basicAuth = require('./middleware/basicAuth')
 
 const app = express()
 
-app.use(morgan((NODE_ENV === 'production') ? 'tiny' : 'common', {
-  skip: () => NODE_ENV === 'test',
-}))
+app.use(
+  morgan(NODE_ENV === 'production' ? 'tiny' : 'common', {
+    skip: () => NODE_ENV === 'test',
+  })
+)
 app.use(cors())
 app.use(helmet())
 
-app.use('/api/things', thingsRouter)
-app.use('/api/reviews', reviewsRouter)
+app.use('/api/things', basicAuth, thingsRouter)
+app.use('/api/reviews', basicAuth, reviewsRouter)
 
 app.use(function errorHandler(error, req, res, next) {
   let response
