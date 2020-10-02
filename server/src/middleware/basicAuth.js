@@ -1,29 +1,43 @@
-const { API_TOKEN } = require('../config')
+const AuthService = require('../auth/auth-service')
 
-const basicAuth = (req, res, next) => {
+function requireAuth(req, res, next) {
   const authToken = req.get('Authorization') || ''
 
-  if (!authToken) {
-    return res.status(400).json({ message: 'Bad request' })
-  }
-
   let basicToken
-
   if (!authToken.toLowerCase().startsWith('basic ')) {
-    return res.status(400).json({ error: 'Missing basic token' })
+    return res.status(401).json({ error: 'Missing basic token' })
   } else {
-    basicToken = authToken.split(' ')[1]
+    basicToken = authToken.slice('basic '.length, authToken.length)
   }
 
-  const [tokenUserName, tokenPassword] = Buffer.from(basicToken, 'base64')
-    .toString()
-    .split(':')
+  const [tokenUserName, tokenPassword] = AuthService.parseBasicToken(basicToken)
 
   if (!tokenUserName || !tokenPassword) {
     return res.status(401).json({ error: 'Unauthorized request' })
   }
 
-  next()
+  AuthService.getUserWithUserName(
+    req.app.get('db'),
+    tokenUserName
+  )
+    .then(user => {
+      if (!user) {
+        return res.status(401).json({ error: 'Unauthorized request' })
+      }
+
+      return AuthService.comparePasswords(tokenPassword, user.password)
+        .then(passwordsMatch => {
+          if (!passwordsMatch) {
+            return res.status(401).json({ error: 'Unauthorized request' })
+          }
+
+          req.user = user
+          next()
+        })
+    })
+    .catch(next)
 }
 
-module.exports = basicAuth
+module.exports = {
+  requireAuth,
+}
